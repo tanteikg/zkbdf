@@ -23,6 +23,7 @@
 #include "shared.h"
 
 int NUM_ROUNDS = 100;
+int NUM_LOOPS = 1;
 
 void printbits(uint32_t n) {
 	if (n) {
@@ -38,25 +39,28 @@ int main(int argc, char * argv[]) {
 	setbuf(stdout, NULL);
 	init_EVP();
 	openmp_thread_setup();
-	char CHALLENGE[MSG_SIZE+1];
+	char CHALLENGE[BLOCK_SIZE];
+	char ek[BLOCK_SIZE];
 	
-        if (argc != 3)
+        if (argc != 4)
         {
-                printf("Usage: %s <number of rounds (e.g. 20, 40, 60, 80, 100)> <challenge>\n",argv[0]);
+                printf("Usage: %s <number of rounds (e.g. 20, 40, 60, 80, 100)> <challenge (Max %d char> <eval key (Max %d char)>\n",argv[0],MSG_SIZE,MSG_SIZE);
                 return -1;
         }
         NUM_ROUNDS = atoi(argv[1]);
-	memset(CHALLENGE,0,MSG_SIZE+1);
+	memset(CHALLENGE,0,sizeof(CHALLENGE));
 	strncpy(CHALLENGE,argv[2],MSG_SIZE);
+	memset(ek,0,sizeof(ek));
+	strncpy(ek,argv[3],MSG_SIZE);
 
 	printf("Iterations of SHA: %d\n", NUM_ROUNDS);
 	int i;
-	i = strlen(CHALLENGE);
-	printf("length of challenge: %d\n",i);
-	unsigned char input[MSG_SIZE];
+	i = strlen(ek);
+	printf("length of ek: %d\n",i);
+	unsigned char input[BLOCK_SIZE];
 	memset(input,0,sizeof(input));
 	for (int j=0;j<i;j++)
-		input[j] = CHALLENGE[j];
+		input[j] = ek[j];
 
 	
 	a as[NUM_ROUNDS];
@@ -77,14 +81,21 @@ int main(int argc, char * argv[]) {
 	struct timeval begin, delta;
 	gettimeofday(&begin,NULL);
 
-for(int loops=0;loops<100;loops++)
+for(int loops=0;loops<NUM_LOOPS;loops++)
 {
 
-	uint32_t y[8];
-	reconstruct(as[0].yp[0],as[0].yp[1],as[0].yp[2],y);
-	printf("Received output for H(Challenge): ");
+	uint32_t y1[8];
+	uint32_t y2[8];
+	reconstruct(as[0].yp1[0],as[0].yp1[1],as[0].yp1[2],y1);
+	reconstruct(as[0].yp2[0],as[0].yp2[1],as[0].yp2[2],y2);
+	printf("Received output for H(ek): ");
 	for(int i=0;i<8;i++) {
-		printf("%02X", y[i]);
+		printf("%02X", y1[i]);
+	}
+	printf("\n");
+	printf("Received output for Hmac(ek,challenge): ");
+	for(int i=0;i<8;i++) {
+		printf("%02X", y2[i]);
 	}
 	printf("\n");
 
@@ -109,7 +120,7 @@ for(int loops=0;loops<100;loops++)
 			tempc[3] = expectedhash[l*4];
  
 			memcpy(&temp,tempc,4);
-			if (temp != y[l])
+			if (temp != y1[l])
 			{
 				printf("hash does not match !!\n");
 				return -1;
@@ -133,15 +144,17 @@ for(int loops=0;loops<100;loops++)
 			memcpy(plaintext[i+1],prevroundhash,16);
 		}
 
-		H3(y,&(as[i]), 1, &(es[i]));
+		H3(y1,y2,&(as[i]), 1, &(es[i]));
 	}
 
 	#pragma omp parallel for
 	for(int i = 0; i<(NUM_ROUNDS); i++) {
-		int verifyResult = verify(as[i], es[i], plaintext[i], zs[i]);
+		int verifyResult = verify(as[i], CHALLENGE, es[i], plaintext[i], zs[i]);
 		if (verifyResult != 0) {
 			printf("Not Verified %d\n", i);
 		}
+		else
+			printf("verified ok for proof %d\n",i);
 	}
 }
 	
@@ -149,8 +162,8 @@ for(int loops=0;loops<100;loops++)
 	unsigned long inMilli = (delta.tv_sec - begin.tv_sec)*1000000 + (delta.tv_usec - begin.tv_usec);
 	inMilli /= 1000;
 
-	printf("Total time for 100 loops: %ju miliseconds\n", (uintmax_t)inMilli);
-	printf("Time for 1 loop: %ju miliseconds\n", (uintmax_t)inMilli/100);
+	printf("Total time for %d loops: %ju miliseconds\n", NUM_LOOPS,(uintmax_t)inMilli);
+	printf("Time for 1 loop: %ju miliseconds\n", (uintmax_t)inMilli/NUM_LOOPS);
 	
 	openmp_thread_cleanup();
 	cleanup_EVP();
