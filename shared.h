@@ -68,7 +68,16 @@ typedef struct {
 #define GETBIT(x, i) (((x) >> (i)) & 0x01)
 #define SETBIT(x, i, b)   x= (b)&1 ? (x)|(1 << (i)) : (x)&(~(1 << (i)))
 
+typedef struct _merkle
+{
+	int type;
+	unsigned char data[32];
+	struct _merkle * sibling;
+	struct _merkle * parent;
+	struct _merkle * previous;
+	struct _merkle * next;
 
+} Merkle;
 
 
 void handleErrors(void)

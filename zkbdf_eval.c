@@ -23,6 +23,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include "shared.h"
+#include <math.h>
 #include "omp.h"
 
 
@@ -185,80 +186,92 @@ int sha256(unsigned char* result, unsigned char* input, int numBits) {
 	uint32_t hA[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
 			0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
-
-	if (numBits > 447) {
-		printf("Input too long, aborting!");
-		return -1;
-	}
-	int chars = numBits >> 3;
-	unsigned char* chunk = calloc(64, 1); //512 bits
-	memcpy(chunk, input, chars);
-	chunk[chars] = 0x80;
-	//Last 8 chars used for storing length of input without padding, in big-endian.
-	//Since we only care for one block, we are safe with just using last 9 bits and 0'ing the rest
-
-	//chunk[60] = numBits >> 24;
-	//chunk[61] = numBits >> 16;
-	chunk[62] = numBits >> 8;
-	chunk[63] = numBits;
-
-	uint32_t w[64];
+	int remainingBits = numBits;
+	int chars;
 	int i;
-	for (i = 0; i < 16; i++) {
-		w[i] = (chunk[i * 4] << 24) | (chunk[i * 4 + 1] << 16)
-						| (chunk[i * 4 + 2] << 8) | chunk[i * 4 + 3];
-	}
+	while (remainingBits >= 0)
+	{
+		if (remainingBits > 447) 
+		{
+			chars = 64;
+			remainingBits -= 512;
+		}
+		else
+		{
+			chars = remainingBits >> 3;
+			remainingBits = -1;
 
-	uint32_t s0, s1;
-	for (i = 16; i < 64; i++) {
-		s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
+		}
+		unsigned char* chunk = calloc(64, 1); //512 bits
+		memcpy(chunk, input, chars);
+		input += chars;
+		if (chars < 64)
+		{	
+			chunk[chars] = 0x80;
+
+			chunk[60] = numBits >> 24;
+			chunk[61] = numBits >> 16;
+			chunk[62] = numBits >> 8;
+			chunk[63] = numBits;
+		}
+
+		uint32_t w[64];
+		for (i = 0; i < 16; i++) {
+			w[i] = (chunk[i * 4] << 24) | (chunk[i * 4 + 1] << 16)
+							| (chunk[i * 4 + 2] << 8) | chunk[i * 4 + 3];
+		}
+
+		uint32_t s0, s1;
+		for (i = 16; i < 64; i++) {
+			s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
 						^ (w[i - 15] >> 3);
-		s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
-						^ (w[i - 2] >> 10);
-		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+			s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
+							^ (w[i - 2] >> 10);
+			w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+		}
+
+		uint32_t a, b, c, d, e, f, g, h, temp1, temp2, maj;
+		a = hA[0];
+		b = hA[1];
+		c = hA[2];
+		d = hA[3];
+		e = hA[4];
+		f = hA[5];
+		g = hA[6];
+		h = hA[7];
+	
+		for (i = 0; i < 64; i++) {
+			s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);
+	
+			temp1 = h + s1 + CH(e, f, g) + k[i] + w[i];
+			s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);
+	
+	
+			maj = (a & (b ^ c)) ^ (b & c);
+			temp2 = s0 + maj;
+	
+	
+			h = g;
+			g = f;
+			f = e;
+			e = d + temp1;
+			d = c;
+			c = b;
+			b = a;
+			a = temp1 + temp2;
+	
+		}
+	
+		hA[0] += a;
+		hA[1] += b;
+		hA[2] += c;
+		hA[3] += d;
+		hA[4] += e;
+		hA[5] += f;
+		hA[6] += g;
+		hA[7] += h;
+	
 	}
-
-	uint32_t a, b, c, d, e, f, g, h, temp1, temp2, maj;
-	a = hA[0];
-	b = hA[1];
-	c = hA[2];
-	d = hA[3];
-	e = hA[4];
-	f = hA[5];
-	g = hA[6];
-	h = hA[7];
-
-	for (i = 0; i < 64; i++) {
-		s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);
-
-		temp1 = h + s1 + CH(e, f, g) + k[i] + w[i];
-		s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);
-
-
-		maj = (a & (b ^ c)) ^ (b & c);
-		temp2 = s0 + maj;
-
-
-		h = g;
-		g = f;
-		f = e;
-		e = d + temp1;
-		d = c;
-		c = b;
-		b = a;
-		a = temp1 + temp2;
-
-	}
-
-	hA[0] += a;
-	hA[1] += b;
-	hA[2] += c;
-	hA[3] += d;
-	hA[4] += e;
-	hA[5] += f;
-	hA[6] += g;
-	hA[7] += h;
-
 	for (i = 0; i < 8; i++) {
 		result[i * 4] = (hA[i] >> 24);
 		result[i * 4 + 1] = (hA[i] >> 16);
@@ -719,6 +732,139 @@ z prove(int e, unsigned char keys[3][16], unsigned char rs[3][4], View views[3])
 	return z;
 }
 
+int GetNextSelected(int size,unsigned char * data, int *dataPtr)
+{
+	int value=0;
+	int modulo = size;
+	
+	while (size > 0)
+	{
+		value <<=8;
+		value += (int) data[*dataPtr];
+		size >>=8;
+		(*dataPtr)++;
+	}
+	if (!(value & 0x01))  // will return odd number
+		value++;
+	return (int) value % modulo;
+}
+
+Merkle * BuildMerkleTree(int NumRounds,z * zs)
+{
+	int i;
+	Merkle * tempNode;
+	Merkle * startNode = NULL;
+	Merkle * childNode;
+	Merkle * prevNode;
+	int done = 0;
+	int odd = 0;
+	unsigned char datablock[64];
+
+	if ((!zs) || (NumRounds < 2))
+		return NULL;
+
+	prevNode = NULL;
+	for (i=0; i < NumRounds;i++)
+	{
+		tempNode = malloc(sizeof(Merkle));
+		if (i==0)
+			startNode = tempNode;
+		sha256(tempNode->data,(unsigned char *)&(zs[i]),sizeof(z) * 8);
+		tempNode->parent = NULL;
+		tempNode->type = 0;
+		tempNode->next = NULL;
+		tempNode->previous = prevNode;
+		if (prevNode)
+			prevNode->next = tempNode;
+		if (!odd)
+		{
+			tempNode->sibling = NULL;
+			odd = 1;
+		}
+		else
+		{
+			prevNode->sibling = tempNode;
+			tempNode->sibling = prevNode;
+			odd = 0;
+		}
+		prevNode = tempNode;
+	}
+	while (!done)
+	{
+		childNode = startNode;
+		while (childNode->parent)
+			childNode = childNode->parent;
+
+		if (!childNode->sibling)
+		{
+			done = 1;
+			continue;
+		}
+		odd = 0;
+		prevNode = NULL;
+		while (childNode != NULL)
+		{
+			tempNode = malloc(sizeof(Merkle));
+			tempNode->type = 1;
+			childNode->parent = tempNode;
+			tempNode->previous = prevNode;	
+			if (prevNode)
+				prevNode->next = tempNode;
+			tempNode->next = NULL;
+			tempNode->parent = NULL;
+			if (!odd)
+			{
+				tempNode->sibling = NULL;
+				odd = 1;
+			}
+			else
+			{
+				prevNode->sibling = tempNode;
+				tempNode->sibling = prevNode;
+				odd = 0;
+			}
+			if (childNode->sibling)
+			{
+				childNode->sibling->parent = tempNode;
+				memcpy(datablock,childNode->data,32);
+				memcpy(&(datablock[32]),childNode->sibling->data,32);
+				sha256(tempNode->data,datablock,64*8);
+				childNode = childNode->sibling->next;
+			}
+			else
+			{
+				memset(datablock,0,sizeof(datablock));
+				memcpy(datablock,childNode->data,32);
+				sha256(tempNode->data,datablock,64*8);
+				childNode = childNode->sibling;
+
+			}
+			prevNode = tempNode;
+		}
+
+
+	}
+
+	return startNode;
+}
+
+void DestroyMerkleTree(Merkle * startNode)
+{
+	Merkle * tempNode;
+
+	if (startNode->parent)
+		DestroyMerkleTree(startNode->parent);
+	startNode->parent = NULL;
+
+	while (startNode)
+	{	
+		tempNode = startNode->next;
+		free(startNode);
+		startNode = tempNode;
+	}
+	return;
+}
+	
 
 #define NUM_LOOPS 1
 
@@ -738,6 +884,12 @@ int main(int argc, char * argv[]) {
         }
 
         NUM_ROUNDS = atoi(argv[1]);
+	if ((NUM_ROUNDS & 0x01) || (NUM_ROUNDS < 4))
+	{
+		printf("Number of rounds should be even and > 4\n");
+		return -1;
+	}
+
 
 	unsigned char garbage[4];
 	if(RAND_bytes(garbage, 4) != 1) {
@@ -817,7 +969,7 @@ for (r=0;r<NUM_ROUNDS;r++)
 		unsigned char prevroundhash[SHA256_DIGEST_LENGTH];
 
                 SHA256_Init(&ctx);
-                SHA256_Update(&ctx, &(zs[r]), sizeof(z));
+                SHA256_Update(&ctx, &(zs[r-1]), sizeof(z));
                 SHA256_Final(prevroundhash, &ctx);
 
 		memcpy(plaintext,prevroundhash,sizeof(plaintext));
@@ -887,11 +1039,50 @@ for (r=0;r<NUM_ROUNDS;r++)
 
 }
 }
+	// now to extract the PCP proofs
+	int PCProunds = (int) ceil(log(NUM_ROUNDS)/log(2));
+	int Totalselected = 0;
+	unsigned char PCPselected[NUM_ROUNDS];
+	Merkle * startNode = NULL;
+	Merkle * currNode = NULL;
+	Merkle * tempNode = NULL;
+	Merkle * rootNode = NULL;
+	unsigned char MerkleHash[64];
+	unsigned char MerkleBranch[(32*2*PCProunds)+32];
+	int MerkleHashPtr;
+	int Nextselected;
+
+
+	startNode = BuildMerkleTree(NUM_ROUNDS,zs);		
+	rootNode = startNode;
+	while (rootNode->parent)
+		rootNode = rootNode->parent;
+	memset(MerkleHash,0,sizeof(MerkleHash));
+	memcpy(&(MerkleHash[32]),rootNode->data,32);
+	sha256(MerkleHash,MerkleHash,64*8);
+	MerkleHashPtr = 0;
+	
+	memset(PCPselected,0,sizeof(PCPselected));
+	while (Totalselected < PCProunds)
+	{
+		Nextselected = GetNextSelected(NUM_ROUNDS,MerkleHash,&MerkleHashPtr);
+		if (!PCPselected[Nextselected])
+		{
+			PCPselected[Nextselected] = 1;
+			Totalselected++;
+		}
+		if (MerkleHashPtr >= 32)
+		{
+			sha256(MerkleHash,MerkleHash,64*8);
+			MerkleHashPtr = 0;
+		}
+	}
+
 	gettimeofday(&delta,NULL);
 	unsigned long inMilli = (delta.tv_sec - begin.tv_sec)*1000000 + (delta.tv_usec - begin.tv_usec);
 	inMilli /= 1000;
 	
-	//Writing to file
+	//Writing ZKBoo proofs to file
 	FILE *file;
 
 	char outputFile[3*sizeof(int) + 8];
@@ -906,13 +1097,78 @@ for (r=0;r<NUM_ROUNDS;r++)
 
 	fclose(file);
 
+	// writing PCP proofs to file 
+	sprintf(outputFile, "pcp%i-%i.bin", NUM_ROUNDS,PCProunds);
+	file = fopen(outputFile, "wb");
+	if (!file) {
+		printf("Unable to open file!");
+		return 1;
+	}
+	currNode = startNode;
+	fwrite(rootNode->data,32,1,file);  // write the root node first
+	tempNode = startNode;
+	for (int k =0;k<NUM_ROUNDS;k++)
+	{
+		fwrite(tempNode->data,32,1,file);
+		tempNode = tempNode->next;
+	}
+	for (int j = 0; j < NUM_ROUNDS; j++)
+	{
+		if (PCPselected[j])
+		{
+			// print current node 
+			
+			tempNode = currNode;
+			memset(MerkleBranch,0,sizeof(MerkleBranch));
+			MerkleHashPtr = 0;
+			while(tempNode->parent != NULL) // write the current node	
+			{
+				if (tempNode->sibling)
+				{
+					if (tempNode->sibling == tempNode->next)
+					{
+						memcpy(&(MerkleBranch[MerkleHashPtr]),tempNode->data,32);
+						MerkleHashPtr += 32;
+						memcpy(&(MerkleBranch[MerkleHashPtr]),tempNode->sibling->data,32);
+						MerkleHashPtr += 32;
+					}
+					else
+					{
+						memcpy(&(MerkleBranch[MerkleHashPtr]),tempNode->sibling->data,32);
+						MerkleHashPtr += 32;
+						memcpy(&(MerkleBranch[MerkleHashPtr]),tempNode->data,32);
+						MerkleHashPtr += 32;
+					}
+
+				}
+				else
+				{
+					memcpy(&(MerkleBranch[MerkleHashPtr]),tempNode->data,32);
+					MerkleHashPtr += 64;
+	
+				}
+				tempNode = tempNode->parent;
+			}
+			fwrite(MerkleBranch,MerkleHashPtr,1,file);  
+			fwrite(&(as[j]), sizeof(a), 1, file);
+			fwrite(&(zs[j]), sizeof(z), 1, file);
+			fwrite(&(as[j-1]), sizeof(a), 1, file);
+			fwrite(&(zs[j-1]), sizeof(z), 1, file);
+		}
+		currNode = currNode->next;
+	}
+	DestroyMerkleTree(startNode);
+
+	fclose(file);
+
+
 	free(zs);
 
 
 	printf("Total time taken for %d loops: %d mili-seconds\n",NUM_LOOPS,inMilli);
 	printf("Time per loop: %d mili-seconds\n",inMilli/NUM_LOOPS);
 	printf("\n");
-	printf("Proof output to file %s", outputFile);
+	printf("zkboo Proof output to file %s", outputFile);
 
 
 	openmp_thread_cleanup();
