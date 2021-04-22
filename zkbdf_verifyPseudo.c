@@ -1,6 +1,6 @@
 /*
 
-        Name: zkbdf_verify.c
+        Name: zkbdf_verifyPseudo.c
         Author: Tan Teik Guan
         Description: Verify function for VDF realization using ZKBoo. Modified from MPC_SHA256_VERIFIER.c
 */

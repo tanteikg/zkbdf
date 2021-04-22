@@ -1,6 +1,6 @@
 /*
 
-        Name: zkbdf_verifyPCP.c
+        Name: zkbdf_verify.c
         Author: Tan Teik Guan
         Description: Verify function for VDF realization using ZKBoo with PCP optimization. Modified from MPC_SHA256_VERIFIER.c
 */
