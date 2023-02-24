@@ -161,7 +161,8 @@ void H3(uint32_t y1[8], uint32_t y2[8], a* as, int s, int* es) {
 	SHA256_Init(&ctx);
 	SHA256_Update(&ctx, y1, 32);
 	SHA256_Update(&ctx, y2, 32);
-	SHA256_Update(&ctx, as, sizeof(a)*s);
+//	SHA256_Update(&ctx, as, sizeof(a)*s);  // to prevent grinding attack
+	SHA256_Update(&ctx, as, 2*3*8*4); // only include yp1,yp2
 	SHA256_Final(hash, &ctx);
 
 	//Pick bits from hash

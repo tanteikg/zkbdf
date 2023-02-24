@@ -1165,8 +1165,8 @@ for (r=0;r<NUM_ROUNDS;r++)
 	free(zs);
 
 
-	printf("Total time taken for %d loops: %d mili-seconds\n",NUM_LOOPS,inMilli);
-	printf("Time per loop: %d mili-seconds\n",inMilli/NUM_LOOPS);
+	printf("Total time taken for %d loops: %ld mili-seconds\n",NUM_LOOPS,inMilli);
+	printf("Time per loop: %ld mili-seconds\n",inMilli/NUM_LOOPS);
 	printf("\n");
 	printf("zkboo Proof output to file %s", outputFile);
 

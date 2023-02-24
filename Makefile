@@ -1,21 +1,21 @@
-TARGETS : zkboo_prove.exe zkboo_verify.exe zkbdf_eval.exe zkbdf_verify.exe zkbdf_verifyPseudo.exe 
+TARGETS : zkboo_prove zkboo_verify zkbdf_eval zkbdf_verify zkbdf_verifyPseudo 
 
-zkboo_prove.exe : zkboo_prove.c zkboo_shared.h
-	gcc -Wl,--stack,16777216 -fopenmp zkboo_prove.c -o zkboo_prove.exe -lssl -lcrypto
+zkboo_prove : zkboo_prove.c zkboo_shared.h
+	gcc -fopenmp zkboo_prove.c -o zkboo_prove -lssl -lcrypto
 
-zkboo_verify.exe : zkboo_verify.c zkboo_shared.h
-	gcc -Wl,--stack,16777216 -fopenmp zkboo_verify.c -o zkboo_verify.exe -lssl -lcrypto
+zkboo_verify : zkboo_verify.c zkboo_shared.h
+	gcc -fopenmp zkboo_verify.c -o zkboo_verify -lssl -lcrypto
 
-zkbdf_eval.exe : zkbdf_eval.c shared.h
-	gcc -Wl,--stack,16777216 -fopenmp zkbdf_eval.c -o zkbdf_eval.exe -lssl -lcrypto
+zkbdf_eval : zkbdf_eval.c shared.h
+	gcc -fopenmp zkbdf_eval.c -o zkbdf_eval -lssl -lcrypto -lm
 
-zkbdf_verify.exe : zkbdf_verify.c shared.h
-	gcc -Wl,--stack,16777216 -fopenmp zkbdf_verify.c -o zkbdf_verify.exe -lssl -lcrypto
+zkbdf_verify : zkbdf_verify.c shared.h
+	gcc -fopenmp zkbdf_verify.c -o zkbdf_verify -lssl -lcrypto -lm
 
-zkbdf_verifyPseudo.exe : zkbdf_verifyPseudo.c shared.h
-	gcc -Wl,--stack,16777216 -fopenmp zkbdf_verifyPseudo.c -o zkbdf_verifyPseudo.exe -lssl -lcrypto
+zkbdf_verifyPseudo : zkbdf_verifyPseudo.c shared.h
+	gcc -fopenmp zkbdf_verifyPseudo.c -o zkbdf_verifyPseudo -lssl -lcrypto
 
 clean :
-	rm  zkboo_prove.exe zkboo_verify.exe zkbdf_eval.exe zkbdf_verify.exe zkbdf_verifyPseudo.exe *.bin *.stackdump 
+	rm  zkboo_prove zkboo_verify zkbdf_eval zkbdf_verify zkbdf_verifyPseudo *.bin *.stackdump 
 
 
